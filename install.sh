@@ -11,6 +11,7 @@ tce-load -wi wget squashfs-tools make gcc glibc_apps
 # 2. Grab Rust bootstrap binary tooling directly
 if ! command -v rustc >/dev/null 2>&1; then
     echo "[+] Bootstrapping Rust compiler toolchain safely..."
+    export TMPDIR=$HOME
     wget -O- https://sh.rustup.rs | sh -s -- -y
     source "$HOME/.cargo/env"
 fi
