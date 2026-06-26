@@ -4,9 +4,9 @@ set -e
 
 echo "=== TINY CORE LINUX ENVIRONMENT DEPLOYMENT ==="
 
-# 1. Grab Core build utilities via Tiny Core Extension System
+# 1. Grab Core build utilities via Tiny Core Extension System (Added bash here!)
 echo "[+] Syncing core dependencies from repository mirrors..."
-tce-load -wi wget squashfs-tools make gcc glibc_apps
+tce-load -wi wget squashfs-tools make gcc glibc_apps bash
 
 # 2. Check for Rust and prompt for interactive installation if missing
 if command -v rustc >/dev/null 2>&1; then
