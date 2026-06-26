@@ -1,17 +1,11 @@
 use std::io::{self, Write};
-use std::fs::File;
-use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 use rand::Rng;
 use chrono::Local;
-use serde::{Serialize, Deserialize};
 
-const CONFIG_FILE: &str = "config.toml";
-
-// 1. CONFIGURATION DATA STRUCT
-#[derive(Serialize, Deserialize, Clone)]
-struct AppConfig {
+// 1. DATA CONTAINER FOR USER INPUTS
+struct UserSettings {
     wallet_address: String,
     worker_id: String,
     pool_url: String,
@@ -19,7 +13,7 @@ struct AppConfig {
 
 // 2. CENTRALIZED BACKEND STATE
 struct DashboardState {
-    config: AppConfig,
+    settings: UserSettings,
     device_name: String,
     difficulty: String,
     current_block: u64,
@@ -42,9 +36,9 @@ struct DashboardState {
 }
 
 impl DashboardState {
-    fn new(config: AppConfig) -> Self {
+    fn new(settings: UserSettings) -> Self {
         Self {
-            config,
+            settings,
             device_name: "Tiny Core Linux Device".to_string(),
             difficulty: "120.5G".to_string(),
             current_block: 3124592,
@@ -60,7 +54,7 @@ impl DashboardState {
             current_nonce: "00000000".to_string(),
             current_hash: "0000000000000000".to_string(),
             reward_log: vec![
-                "\x1B[33m[~] Configuration profile verified. Connecting to pool... \x1B[0m".to_string(); 7
+                "\x1B[33m[~] Connection handshake initiated with RandomX pool...\x1B[0m".to_string(); 7
             ],
             spinner_frame: 0,
         }
@@ -109,7 +103,7 @@ impl DashboardState {
     }
 }
 
-// 3. UI RENDERING FRAMEWORK
+// 3. CLEAN RENDER ENGINE
 fn draw_dashboard(state: &DashboardState, uptime_secs: u64) {
     let hours = uptime_secs / 3600;
     let minutes = (uptime_secs % 3600) / 60;
@@ -124,13 +118,13 @@ fn draw_dashboard(state: &DashboardState, uptime_secs: u64) {
         if i < filled_blocks { progress_bar.push('█'); } else { progress_bar.push('░'); }
     }
 
-    print!("\x1B[H"); // Cursor resetting code to prevent screen strobing
+    print!("\x1B[H"); // Cursor reset tracking code
     println!("=================================================================================");
     println!(" 👑  \x1B[1;36mTinyCore Linux XMR Monero Dashboard\x1B[0m             [\x1B[32m● ONLINE\x1B[0m]");
     println!("=================================================================================");
-    println!(" 👛 Wallet Address: \x1B[33m{}\x1B[0m [\x1B[32mCONNECTED\x1B[0m]", state.config.wallet_address);
-    println!(" 💻 Target Node   : \x1B[35m{}\x1B[0m | ID: {}", state.device_name, state.config.worker_id);
-    println!(" 🌐 Pool Server   : \x1B[34m{}\x1B[0m | Latency: {}ms", state.config.pool_url, state.latency_ms);
+    println!(" 👛 Wallet Address: \x1B[33m{}\x1B[0m [\x1B[32mCONNECTED\x1B[0m]", state.settings.wallet_address);
+    println!(" 💻 Target Node   : \x1B[35m{}\x1B[0m | ID: {}", state.device_name, state.settings.worker_id);
+    println!(" 🌐 Pool Server   : \x1B[34m{}\x1B[0m | Latency: {}ms", state.settings.pool_url, state.latency_ms);
     println!("---------------------------------------------------------------------------------");
     println!(" ⏱️  Uptime: {:02}:{:02}:{:02} | {} Mining Round: [{}] {:3}%", 
              hours, minutes, seconds, current_spinner, progress_bar, state.progress_percent);
@@ -157,69 +151,43 @@ fn draw_dashboard(state: &DashboardState, uptime_secs: u64) {
     io::stdout().flush().unwrap();
 }
 
-// 4. INTERACTIVE INITIALIZATION AND UTILITIES
-fn prompt_input(prompt: &str) -> String {
+fn prompt_input(prompt: &str, default: &str) -> String {
     print!("{}", prompt);
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
-    input.trim().to_string()
-}
-
-fn load_or_create_config() -> AppConfig {
-    if Path::new(CONFIG_FILE).exists() {
-        // Read existing config
-        let contents = std::fs::read_to_string(CONFIG_FILE).expect("Failed to read configuration profile.");
-        toml::from_str(&contents).expect("Invalid configuration parsing style.")
-    } else {
-        // Display setup banner
-        println!("==================================================");
-        println!(" 🛠️  INITIAL TINY CORE NODE SETUP PROFILE");
-        println!("==================================================");
-        println!(" No existing 'config.toml' profile found.");
-        println!(" Please supply your node environment information below:\n");
-
-        let mut wallet = prompt_input(" 👉 Enter Monero Receive Wallet Address: ");
-        if wallet.is_empty() {
-            wallet = "44AFFq5kSiGbU8S789Cabc1234567890QWERTYUIOPASDFGHJKLZXCVBNM1234567890".to_string();
-        }
-        
-        let mut worker = prompt_input(" 👉 Enter Worker/Device Node Identifier: ");
-        if worker.is_empty() {
-            worker = "tcl_node_01".to_string();
-        }
-
-        let mut pool = prompt_input(" 👉 Enter Pool Connection Endpoint URL: ");
-        if pool.is_empty() {
-            pool = "pool.supportxmr.com:443".to_string();
-        }
-
-        let new_config = AppConfig {
-            wallet_address: wallet,
-            worker_id: worker,
-            pool_url: pool,
-        };
-
-        // Serialize into TOML formatting string
-        let toml_string = toml::to_string_pretty(&new_config).unwrap();
-        let mut file = File::create(CONFIG_FILE).expect("Failed to construct profile path.");
-        file.write_all(toml_string.as_bytes()).expect("Failed to write to destination profile.");
-        
-        println!("\n[✓] Configuration successfully saved to './config.toml'!");
-        println!(" Press Enter to jump to the running node interface...");
-        let mut tmp = String::new();
-        io::stdin().read_line(&mut tmp).unwrap();
-
-        new_config
-    }
+    let trimmed = input.trim().to_string();
+    if trimmed.is_empty() { default.to_string() } else { trimmed }
 }
 
 fn main() {
-    let config = load_or_create_config();
-    let start_time = Instant::now();
-    let mut state = DashboardState::new(config);
+    // Clear screen before prompting for input configurations
+    println!("\x1B[2J\x1B[H");
+    println!("==================================================");
+    println!(" 🛠️  INITIAL TINY CORE NODE SETUP PROFILE");
+    println!("==================================================");
+    println!(" Provide your node environment credentials below:\n");
 
-    println!("\x1B[2J\x1B[H"); // Wipe screen clean before showing the loop
+    let wallet = prompt_input(
+        " 👉 Enter Monero Wallet Address (Press Enter for Default): ",
+        "44AFFq5kSiGbU8S789Cabc1234567890QWERTYUIOPASDFGHJKLZXCVBNM1234567890"
+    );
+    
+    let worker = prompt_input(
+        " 👉 Enter Worker Node ID (Press Enter for Default): ",
+        "tcl_node_01"
+    );
+
+    let pool = prompt_input(
+        " 👉 Enter Pool Connection URL (Press Enter for Default): ",
+        "pool.supportxmr.com:443"
+    );
+
+    let settings = UserSettings { wallet_address: wallet, worker_id: worker, pool_url: pool };
+    let start_time = Instant::now();
+    let mut state = DashboardState::new(settings);
+
+    println!("\x1B[2J\x1B[H"); // Wipe inputs and launch UI
 
     loop {
         state.update_state();
