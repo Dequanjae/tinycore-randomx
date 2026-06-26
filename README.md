@@ -9,4 +9,4 @@ A hyper-lightweight Monero (XMR) RandomX mining engine and live dashboard built 
 Open your Tiny Core Linux terminal and type this exact command:
 
 ```text
-wget -O- [raw.githubusercontent.com/Dequanjae/tinycore-randomx/main/install.sh](https://raw.githubusercontent.com/Dequanjae/tinycore-randomx/main/install.sh) | sh
+wget -O- https://raw.githubusercontent.com/Dequanjae/tinycore-randomx/main/install.sh | sh
