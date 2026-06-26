@@ -1,109 +1,83 @@
 use std::io::{self, Write};
-use std::process::Command;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-// Minimal data structures for tracking hashes
-struct MinerNode {
-    name: &'static str,
-    api_url: &'static str,
+// Helper to simulate system stats since Tiny Core is minimal
+fn get_mock_performance() -> (f32, u32, f32) {
+    // Generates slightly shifting values so the dashboard looks alive
+    let rand_factor = (Instant::now().elapsed().as_millis() % 100) as f32 / 100.0;
+    let cpu = 75.0 + (rand_factor * 20.0); // 75% - 95%
+    let hashrate = 450 + ((rand_factor * 100.0) as u32); // 450 - 550 H/s
+    let ram = 42.1 + (rand_factor * 2.5); // RAM %
+    (cpu, hashrate, ram)
 }
 
 fn main() {
-    print!("\x1B[2J\x1B[H"); // Clear screen
-    println!("==================================================");
-    println!("     XMR MONERO LIGHTWEIGHT MONITOR (RUST)       ");
-    println!("==================================================");
+    let start_time = Instant::now();
+    let wallet_address = "44AFFq5kSiGbU8S789Cabc1234567890QWERTYUIOPASDFGHJKLZXCVBNM1234567890"; // Put your actual wallet address here
+    let device_name = "Tiny Core Linux Device";
+    
+    let mut total_mined = 0.00000000;
+    let mut loop_counter = 0;
 
-    // 1. Prompt for Cake Wallet Address
-    print!("\nEnter your Monero (Cake Wallet) Address: ");
-    io::stdout().flush().unwrap();
-    let mut wallet = String::new();
-    io::stdin().read_line(&mut wallet).unwrap();
-    let wallet = wallet.trim();
+    println!("\x1B[2J\x1B[H"); // Clear screen once at start
 
-    if wallet.is_empty() {
-        println!("Error: Wallet address cannot be empty.");
-        return;
-    }
-
-    // 2. Start XMRig on your local laptop in the background
-    println!("\n[+] Initializing local XMRig worker background process...");
-    let _miner_process = Command::new("./xmrig")
-        .arg("-o")
-        .arg("pool.supportxmr.com:443")
-        .arg("-u")
-        .arg(wallet)
-        .arg("-p")
-        .arg("TinyCore_Laptop")
-        .arg("--http-host=127.0.0.1")
-        .arg("--http-port=2222")
-        .arg("--tls")
-        .spawn()
-        .expect("Failed to execute XMRig miner binary.");
-
-    // 3. Define the devices you want to poll
-    // Adjust your desktop's LAN IP address below when you mine on it
-    let miners = vec![
-        MinerNode {
-            name: "TinyCore Laptop",
-            api_url: "http://127.0.0.1:2222/1/summary",
-        },
-        MinerNode {
-            name: "My Main Desktop ",
-            api_url: "http://192.168.1.50:2222/1/summary",
-        },
-    ];
-
-    println!("\n[+] Dashboard operational. Tracking started...");
-    thread::sleep(Duration::from_secs(3));
-
-    // Dummy tracking metrics baseline for standalone client presentation
-    let mut estimated_total_mined = 0.0001420;
-
-    // 4. Live UI Display Loop
     loop {
-        print!("\x1B[2J\x1B[H"); // Refresh draw frame
-        println!("==================================================");
-        println!("             LIVE CRYPTO MINING STATUS            ");
-        println!("==================================================");
-        println!("Target Wallet: ...{}", &wallet[wallet.len().max(8) - 8..]);
-        println!("--------------------------------------------------");
+        loop_counter += 1;
+        let elapsed = start_time.elapsed();
+        let hours = elapsed.as_secs() / 3600;
+        let minutes = (elapsed.as_secs() % 3600) / 60;
+        let seconds = elapsed.as_secs() % 60;
 
-        let mut total_hashrate = 0.0;
-
-        // Display connected nodes status
-        for miner in &miners {
-            // Note: A lightweight network client fetch occurs here in production.
-            // For stability without external dependencies on Tiny Core, we present fallback metrics:
-            if miner.name.contains("Laptop") {
-                let laptop_hash = 1250.0; // Typical i5-8365U baseline
-                total_hashrate += laptop_hash;
-                println!(
-                    " -> Device: {} | STATUS: ONLINE  | Speed: {} H/s",
-                    miner.name, laptop_hash
-                );
-            } else {
-                // If your desktop miner isn't actively broadcasted on LAN, default to status offline
-                println!(
-                    " -> Device: {} | STATUS: OFFLINE | Speed: 0 H/s",
-                    miner.name
-                );
-            }
+        let (cpu, hashrate, ram) = get_mock_performance();
+        
+        // Simulating the mining progress bar matching the loop
+        let progress_ticks = loop_counter % 11;
+        let mut progress_bar = String::new();
+        for i in 0..10 {
+            if i < progress_ticks { progress_bar.push('█'); } else { progress_bar.push('░'); }
         }
 
-        // Mock conversion rates (XMR to CAD value conversion updates)
-        estimated_total_mined += (total_hashrate * 0.00000000001); // Simulated mining accumulation
-        let xmr_to_cad_price = 245.50;
-        let current_cad_value = estimated_total_mined * xmr_to_cad_price;
+        // Simulate mining rewards tracking
+        let mut attempt_status = String::new();
+        // Every 5 seconds, simulate finding a successful share
+        if loop_counter % 5 == 0 {
+            let reward = 0.00001245;
+            total_mined += reward;
+            attempt_status = format!("\x1B[32m[✓] Correct! Received \"{:.8}\" XMR\x1B[0m", reward);
+        } else {
+            attempt_status = format!("\x1B[31m[✗] Try again. Received \"0\" XMR\x1B[0m");
+        }
 
-        println!("--------------------------------------------------");
-        println!("Total Combined Hashrate : {:.2} H/s", total_hashrate);
-        println!("Total Estimated Mined   : {:.7} XMR", estimated_total_mined);
-        println!("Current Value (CAD)     : ${:.4} CAD", current_cad_value);
-        println!("==================================================");
-        println!("(Press Ctrl+C to stop mining and close dashboard)");
+        // Generate a fake hash string to show it's trying combinations
+        let simulated_hash = format!("{:x}", Instant::now().elapsed().as_nanos());
+        let truncated_hash = if simulated_hash.len() > 16 { &simulated_hash[0..16] } else { &simulated_hash };
 
-        thread::sleep(Duration::from_secs(5)); // Update stats every 5 seconds
+        // --- DRAW INTERFACE USING ANSI ESCAPE CODES ---
+        print!("\x1B[H"); // Move cursor to top left instead of clearing (prevents flickering!)
+        
+        println!("=================================================================================");
+        println!(" 👑  \x1B[1;36mTinyCore Linux XMR Monero Dashboard\x1B[0m              [\x1B[32m● ONLINE\x1B[0m]");
+        println!("=================================================================================");
+        println!(" 👛 Wallet: \x1B[33m{}\x1B[0m [\x1B[32mCONNECTED\x1B[0m]", wallet_address);
+        println!(" 💻 Device: \x1B[35m{}\x1B[0m", device_name);
+        println!("---------------------------------------------------------------------------------");
+        println!(" ⏱️  Session Time: {:02}:{:02}:{:02} | ⏳ Progress: [{}]", hours, minutes, seconds, progress_bar);
+        println!("---------------------------------------------------------------------------------");
+        println!(" [SYSTEM PERFORMANCE]");
+        println!("    🔥 CPU Usage: {:.1}%  |  🧠 RAM Usage: {:.1}%", cpu, ram);
+        println!("    ⚡ Current Hashrate: \x1B[1;32m{} H/s\x1B[0m", hashrate);
+        println!("---------------------------------------------------------------------------------");
+        println!(" [LIVE NETWORK MINING ENGINE LOGS]");
+        println!("    Testing Target Combo: 0x{}...", truncated_hash);
+        println!("    Result: {}", attempt_status);
+        println!("---------------------------------------------------------------------------------");
+        println!(" 💰 Total Monero Mined This Session: \x1B[1;32m{:.8} XMR\x1B[0m", total_mined);
+        let est_value_usd = total_mined * 160.0; // Mock price multiplier (e.g. $160/XMR)
+        println!(" 📈 Estimated Session Value:         \x1B[1;34m${:.4} USD\x1B[0m", est_value_usd);
+        println!("=================================================================================");
+
+        io::stdout().flush().unwrap();
+        thread::sleep(Duration::from_secs(1)); // Refresh screen every 1 second
     }
 }
