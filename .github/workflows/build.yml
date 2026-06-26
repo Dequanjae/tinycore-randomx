@@ -1,0 +1,31 @@
+name: Compile Dashboard Binary
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install Rust Toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-musl
+
+    - name: Compile Lightweight Static Binary
+      run: |
+        cargo build --release --target x86_64-unknown-linux-musl
+        cp target/x86_64-unknown-linux-musl/release/miner_dashboard ./monitor
+
+    - name: Commit Binary Back to Repository
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add monitor
+        git commit -m "Automated compile: updated monitor binary" || echo "No changes to commit"
+        git push
