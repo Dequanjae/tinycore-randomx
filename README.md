@@ -1,63 +1,105 @@
 # Tiny Core Linux XMR Monero Dashboard 🚀
 
-A highly optimized, lightweight terminal dashboard built in Rust for monitoring RandomX engines on Tiny Core Linux environments. 
+A lightweight terminal dashboard written in Rust for monitoring RandomX mining activity on Tiny Core Linux.
 
-Instead of dealing with massive compiler setups or memory limitations on raw RAM-based operating systems, this repository utilizes **GitHub Actions** to automatically compile the Rust monitoring tool into a standalone, statically linked machine-code binary (`monitor`). Your Tiny Core device simply downloads the pre-compiled file and runs it instantly!
-
----
-
-## 🖥️ Dashboard Visual Overview
-
-The custom terminal interface features:
-* **Live Network Status:** Displays an `[● ONLINE]` indicator and connection state verification.
-* **Dynamic Statistics:** Shifting CPU usage, RAM allocations, and live hash speeds.
-* **Mining Simulation Feedback:** Displays detailed progress blocks alongside successes (`[✓] Correct!`) and misses (`[✗] Try again`).
-* **Financial Tracking:** Real-time metrics counting total XMR generated this session and its estimated USD value.
+Instead of installing the full Rust toolchain on a RAM-based operating system, this repository uses **GitHub Actions** to automatically build a standalone, statically linked binary (`monitor`). Your Tiny Core system simply downloads the precompiled binary and runs it.
 
 ---
 
-## ⚡ Quick Start (On Tiny Core Linux)
+# 🖥️ Dashboard Features
 
-To deploy the environment on your Tiny Core system, clear any previous installation folders and execute the clean bootstrapping script:
+- **Live Network Status** – Displays an `● ONLINE` indicator and connection status.
+- **Dynamic Statistics** – Shows CPU usage, memory usage, and current hash rate.
+- **Mining Status** – Displays mining progress along with accepted and rejected shares (or other mining events, depending on your implementation).
+- **Session Statistics** – Displays runtime statistics such as total hashes, uptime, and any additional metrics collected by the dashboard.
+
+---
+
+# ⚡ Quick Start (Tiny Core Linux)
+
+Remove any previous installation files, then download and run the installer:
 
 ```bash
 rm -rf *
 wget https://raw.githubusercontent.com/Dequanjae/tinycore-randomx/main/install.sh
 chmod +x install.sh
 ./install.sh
+```
 
----
-
-Once the deployment script completes successfully, launch your live monitoring interface by typing:
+After installation completes, start the dashboard:
 
 ```bash
 ./monitor
+```
 
 ---
 
-## 🛠️ How It Works (Under the Hood)
-Automated Pipeline (.github/workflows/build.yml): Every time you commit changes to src/main.rs, GitHub fires up an automated Ubuntu runner.
+# 🛠️ How It Works
 
-MUSL Compilation: GitHub compiles your Rust project targeting x86_64-unknown-linux-musl. This packages all necessary libraries directly inside the binary.
+### GitHub Actions
 
-No-Dependency Deployment: Your Tiny Core machine pulls the finished binary file. Because it is statically built, it executes perfectly without needing cargo, rustc, or bash installed on the client machine.
+Whenever changes are pushed to the repository, GitHub Actions automatically builds the project.
+
+### Static MUSL Build
+
+The project is compiled for:
+
+```
+x86_64-unknown-linux-musl
+```
+
+This produces a fully statically linked executable that requires no Rust installation on the target system.
+
+### Simple Deployment
+
+The Tiny Core installer downloads the latest prebuilt binary, allowing the dashboard to run without installing:
+
+- Rust
+- Cargo
+- Additional runtime libraries
 
 ---
 
-## 🗃️ Repository Structure
-src/main.rs — The primary Rust source file controlling the dashboard logic, escape codes, and terminal refresh rates.
+# 🗂️ Repository Structure
 
-**Cargo.toml** — The configuration file managing dependencies and language editions.
-
-**install.sh** — The deployment shell script optimized to download dependencies and grab the pre-built binaries.
-
-**.github/workflows/build.yml** — The GitHub Actions automation script that builds the binaries for you.
+```
+.
+├── src/
+│   └── main.rs              # Dashboard source code
+├── Cargo.toml               # Rust project configuration
+├── install.sh               # Tiny Core installer
+└── .github/
+    └── workflows/
+        └── build.yml        # GitHub Actions build workflow
+```
 
 ---
 
-## ❓ Troubleshooting
-**The terminal displays "Permission Denied" when launching** ./monitor
-Ensure the file has executable permissions assigned to it by running:
+# ❓ Troubleshooting
+
+### Permission denied when launching `./monitor`
+
+Make the binary executable:
 
 ```bash
 chmod +x monitor
+```
+
+### Binary won't run
+
+Verify that you're using a build compiled for your CPU architecture.
+
+### Installer failed
+
+Check your internet connection and verify that GitHub is reachable from your Tiny Core system.
+
+---
+
+# 🚀 Why This Project?
+
+- Lightweight and fast
+- Designed for Tiny Core Linux
+- No Rust toolchain required on the target system
+- Automatic GitHub Actions builds
+- Statically linked executable for maximum portability
+````
