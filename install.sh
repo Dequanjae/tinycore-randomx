@@ -8,12 +8,32 @@ echo "=== TINY CORE LINUX ENVIRONMENT DEPLOYMENT ==="
 echo "[+] Syncing core dependencies from repository mirrors..."
 tce-load -wi wget squashfs-tools make gcc glibc_apps
 
-# 2. Grab Rust bootstrap binary tooling directly
-if ! command -v rustc >/dev/null 2>&1; then
-    echo "[+] Bootstrapping Rust compiler toolchain safely..."
-    export TMPDIR=$HOME
-    wget -O- https://sh.rustup.rs | sh -s -- -y
-    source "$HOME/.cargo/env"
+# 2. Check for Rust and prompt for interactive installation if missing
+if command -v rustc >/dev/null 2>&1; then
+    echo "[✓] Rust compiler is already installed on this system."
+else
+    echo "[-] Rust compiler was not found."
+    printf "👉 Rust is required to build the dashboard. Install it now? (y/n): "
+    read -r user_choice
+    
+    if [ "$user_choice" = "y" ] || [ "$user_choice" = "Y" ]; then
+        echo "[+] Downloading standalone Rust package..."
+        wget https://static.rust-lang.org/dist/rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz
+        
+        echo "[+] Extracting Rust compiler..."
+        tar -xf rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz
+        
+        echo "[+] Installing Rust system-wide..."
+        cd rust-1.78.0-x86_64-unknown-linux-gnu
+        sudo ./install.sh --prefix=/usr/local
+        cd ..
+        
+        # Clean up heavy installer tarballs to save your system RAM
+        rm -rf rust-1.78.0-x86_64-unknown-linux-gnu*
+    else
+        echo "❌ Installation cancelled by user. Rust is needed to finish the build."
+        exit 1
+    fi
 fi
 
 # 3. Retrieve pre-built XMRig engine tailored for raw Linux architectures
@@ -37,6 +57,7 @@ edition = "2021"' > Cargo.toml
     mv main.rs src/main.rs 2>/dev/null || true
 fi
 
+# Build your custom dashboard binary
 cargo build --release
 cp target/release/miner_dashboard ./monitor
 
