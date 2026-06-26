@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# If your dashboard code uses external libraries (like colored text or terminal tools), 
-# you can list them here. Otherwise, leave this blank!
+rand = "0.8"
+chrono = "0.4"
