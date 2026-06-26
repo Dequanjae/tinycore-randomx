@@ -9,9 +9,8 @@ echo "[+] Syncing core dependencies from repository mirrors..."
 tce-load -wi wget squashfs-tools make gcc glibc_apps bash
 
 # 2. Check for Rust and handle portable local extraction if missing
-if command -v rustc >/dev/null 2>&1 || [ -f "$HOME/rust-local/rustc/bin/rustc" ]; then
+if command -v rustc >/dev/null 2>&1 || [ -f "$HOME/rust-local/cargo/bin/cargo" ]; then
     echo "[✓] Rust compiler framework detected."
-    # Make sure local paths are loaded just in case
     if [ -d "$HOME/rust-local" ]; then
         export PATH="$HOME/rust-local/rustc/bin:$HOME/rust-local/cargo/bin:$PATH"
     fi
@@ -24,16 +23,16 @@ else
         echo "[+] Downloading standalone Rust package..."
         wget https://static.rust-lang.org/dist/rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz
         
-        echo "[+] Extracting Rust compiler locally..."
+        echo "[+] Extracting Rust compiler components..."
         tar -xf rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz
         
-        # Move the compiled binaries straight into your home folder to protect them from system wipes
+        # Move the unpacked folder into home
         mv rust-1.78.0-x86_64-unknown-linux-gnu "$HOME/rust-local"
         
-        # Manually inject the portable binaries directly into our active script session path
+        # Point right inside the specific subfolders where the actual tools live
         export PATH="$HOME/rust-local/rustc/bin:$HOME/rust-local/cargo/bin:$PATH"
         
-        # Clean up the compressed download file to instantly free up RAM
+        # Clean up compressed file to free up RAM
         rm -f rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz
     else
         echo "❌ Installation cancelled by user. Rust is needed to finish the build."
@@ -41,7 +40,7 @@ else
     fi
 fi
 
-# Ensure the shell path includes our portable binaries for the remainder of this script run
+# Apply the strict tool subfolders to the environment session
 if [ -d "$HOME/rust-local" ]; then
     export PATH="$HOME/rust-local/rustc/bin:$HOME/rust-local/cargo/bin:$PATH"
 fi
@@ -58,7 +57,6 @@ fi
 # 4. Compile the custom Rust monitor framework
 echo "[+] Generating optimized local interface profile..."
 if [ ! -f "./Cargo.toml" ]; then
-    # Create simple build configuration inline if missing
     echo '[package]
 name = "miner_dashboard"
 version = "0.1.0"
@@ -72,7 +70,7 @@ echo "[+] Invoking compiler toolchain..."
 cargo build --release
 cp target/release/miner_dashboard ./monitor
 
-# Optional cleanup: Wipes out the large local compiler after compilation to free up your RAM!
+# Optional cleanup: Wipes out the local compiler after compilation to free up your RAM!
 echo "[+] Cleaning up local builder environment..."
 rm -rf "$HOME/rust-local"
 
