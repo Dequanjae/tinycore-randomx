@@ -2,16 +2,20 @@
 use crate::state::DashboardState;
 
 pub fn render(state: &DashboardState) {
+    // Return cursor to home position
     print!("\x1B[H"); 
     println!("=================================================================");
-    println!(" 👑  TinyCore Linux Monero Dashboard Engine   [LIVE DATA]");
+    println!(" 👑  TINY CORE LINUX LIVE PRODUCER MONITOR   ");
     println!("=================================================================");
-    println!(" 💻 Worker ID     : {}", state.worker_id);
-    println!(" 🌐 Connected Pool: {}", state.pool_url);
-    println!(" ⚡ Real Hashrate : {:.2} H/s | Latency: {} ms", state.hashrate, state.latency_ms);
-    println!(" 📊 Shares Passed : {}", state.accepted_shares);
+    println!(" 💻 Hardware Device  : {}", state.device_name);
+    println!(" 🆔 Worker Target ID : {}", state.worker_id);
+    println!(" 🌐 Endpoint Network : {}", state.pool_url);
     println!("-----------------------------------------------------------------");
-    println!(" [ENGINE LOGS]");
+    println!(" ⚡ Real Hashrate    : {:.2} H/s", state.hashrate);
+    println!(" 📡 Network Latency  : {} ms", state.latency_ms);
+    println!(" 📊 Shares Verified  : {} / {}", state.accepted_shares, state.total_shares);
+    println!("=================================================================");
+    println!(" [DAEMON TELEMETRY LOGS]");
     for log in &state.event_log {
         println!("  👉 {}", log);
     }
