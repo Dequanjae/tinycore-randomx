@@ -1,31 +1,4 @@
 // src/state.rs
-use serde::Deserialize;
-
-#[derive(Deserialize, Debug, Default)]
-pub struct XmrigResponse {
-    pub connection: ConnectionInfo,
-    pub hashrate: HashrateInfo,
-    pub results: ResultsInfo,
-}
-
-#[derive(Deserialize, Debug, Default)]
-pub struct ConnectionInfo {
-    pub pool: String,
-    pub uptime: u64,
-    pub ping: u64,
-}
-
-#[derive(Deserialize, Debug, Default)]
-pub struct HashrateInfo {
-    pub total: Vec<Option<f64>>,
-}
-
-#[derive(Deserialize, Debug, Default)]
-pub struct ResultsInfo {
-    pub shares_good: u64,
-    pub shares_total: u64,
-}
-
 pub struct DashboardState {
     pub worker_id: String,
     pub hashrate: f64,
@@ -34,7 +7,7 @@ pub struct DashboardState {
     pub uptime: u64,
     pub shares_verified: String,
     pub status: String,
-    pub event_log: Vec<String>, // Added for ui.rs loop
+    pub event_log: Vec<String>,
 }
 
 impl DashboardState {
@@ -59,15 +32,32 @@ impl DashboardState {
         if let Ok(cli) = client {
             match cli.get("http://127.0.0.1:2222/1/summary").send() {
                 Ok(response) => {
-                    if let Ok(data) = response.json::<XmrigResponse>() {
-                        self.hashrate = data.hashrate.total.first().and_then(|x| *x).unwrap_or(0.0);
-                        self.pool = data.connection.pool;
-                        self.ping = data.connection.ping;
-                        self.uptime = data.connection.uptime;
-                        self.shares_verified = format!("{}/{}", data.results.shares_good, data.results.shares_total);
+                    // FIXED: Parse as a dynamic JSON object value to bypass structural parsing strictness
+                    if let Ok(json) = response.json::<serde_json::Value>() {
+                        
+                        // Safely pull the hashrate array values dynamically
+                        if let Some(hashrates) = json["hashrate"]["total"].as_array() {
+                            self.hashrate = hashrates.first()
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+                        }
+
+                        // Pull connection fields safely
+                        if let Some(pool_str) = json["connection"]["pool"].as_str() {
+                            self.pool = pool_str.to_string();
+                        }
+                        
+                        self.ping = json["connection"]["ping"].as_u64().unwrap_or(0);
+                        self.uptime = json["connection"]["uptime"].as_u64().unwrap_or(0);
+
+                        // Pull share submission counts safely
+                        let good = json["results"]["shares_good"].as_u64().unwrap_or(0);
+                        let total = json["results"]["shares_total"].as_u64().unwrap_or(0);
+                        self.shares_verified = format!("{} / {}", good, total);
+
                         self.status = "Online".to_string();
                     } else {
-                        self.set_offline("Parsing Error: Invalid Payload Structure.");
+                        self.set_offline("Parsing Error: Unexpected API response payload configuration.");
                     }
                 }
                 Err(_) => {
@@ -82,7 +72,12 @@ impl DashboardState {
     fn set_offline(&mut self, error_msg: &str) {
         self.hashrate = 0.0;
         self.status = error_msg.to_string();
-        if self.event_log.len() > 10 { self.event_log.remove(0); }
-        self.event_log.push(format!("[!] Keep-alive failed: {}", error_msg));
+        if self.event_log.len() > 8 { self.event_log.remove(0); }
+        
+        // Prevent spamming the dashboard with identical offline warnings
+        let formatted_err = format!("[!] Keep-alive warning: {}", error_msg);
+        if self.event_log.last() != Some(&formatted_err) {
+            self.event_log.push(formatted_err);
+        }
     }
 }
