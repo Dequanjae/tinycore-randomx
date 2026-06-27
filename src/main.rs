@@ -2,7 +2,7 @@
 mod state;
 mod ui;
 
-use std::io::{self, Write};
+use std::io::{self, Write, Read};
 use std::thread;
 use std::time::Duration;
 use state::DashboardState;
@@ -11,10 +11,17 @@ use state::DashboardState;
 const MY_PERSONAL_WALLET: &str = "8ApdEka2j6CUaaNKp12H1VBi1bziZB2T9Dhju1fPzgiTC8KBLWEEddVeZnpZjg7Ni4KCENsPLfSDfh2nbMhbFqngM5wKwHE";
 
 fn prompt_input(prompt: &str, default: &str) -> String {
+    // If there is no interactive terminal attached, fall back to the default immediately to avoid panics
+    if !unsafe { libc::isatty(7) } && !unsafe { libc::isatty(0) } {
+        return default.to_string();
+    }
+    
     print!("{}", prompt);
     io::stdout().flush().unwrap();
     let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
+    if io::stdin().read_line(&mut input).is_err() {
+        return default.to_string();
+    }
     let trimmed = input.trim().to_string();
     if trimmed.is_empty() { default.to_string() } else { trimmed }
 }
@@ -29,12 +36,15 @@ fn prompt_pool_menu() -> String {
         "Custom (Enter your own)...",
     ];
     
+    // Safety check: If running in a background environment like GitHub Actions without a terminal screen,
+    // immediately return the default pool instead of panicking with Exit Code 101.
+    if !unsafe { libc::isatty(0) } {
+        return pools[0].to_string();
+    }
+    
     let mut selected_index = 0;
     
-    // We put the terminal in a clean state to capture single keystrokes
-    // On Tiny Core / Linux, we read from standard input raw bytes
     loop {
-        // Clear setup area and re-draw the menu
         print!("\x1B[H\x1B[J"); // Clear screen and move to top
         println!("=================================================================");
         println!(" 🌐  SELECT YOUR MINING POOL CONNECTION                          ");
@@ -51,36 +61,36 @@ fn prompt_pool_menu() -> String {
         println!("=================================================================");
         io::stdout().flush().unwrap();
 
-        // Capture raw arrow keys (which typically send 3-byte escape sequences like \x1B, '[', 'A')
-        let mut buffer = [0; 3];
-        let _ = io::stdin().read_line(&mut String::new()); // Fallback placeholder if terminal is cooked
-
-        // NOTE: For 100% pure terminal manipulation without cross-compilation errors on static MUSL targets,
-        // we execute a simple Linux shell call to grab a single character safely:
+        // Save current terminal state configuration safely
         let output = std::process::Command::new("stty")
             .arg("-g")
-            .output()
-            .unwrap();
-        let old_stty = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            .output();
+            
+        let old_stty = match output {
+            Ok(out) => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+            Err(_) => return pools[0].to_string(), // Fallback if system environment lacks stty
+        };
 
         // Put terminal in raw mode via system shell
-        std::process::Command::new("stty").arg("raw").arg("-echo").status().unwrap();
+        if std::process::Command::new("stty").arg("raw").arg("-echo").status().is_err() {
+            return pools[0].to_string();
+        }
         
         let mut key_buf = [0; 1];
-        io::stdin().read_exact(&mut key_buf).unwrap();
+        let read_result = io::stdin().read_exact(&mut key_buf);
 
-        let mut final_key = key_buf[0];
+        let mut final_key = if read_result.is_ok() { key_buf[0] } else { b'\n' };
+        
         if final_key == 27 { // Escape sequence detected (Arrow keys)
             let mut seq = [0; 2];
-            io::stdin().read_exact(&mut seq).unwrap();
-            if seq[0] == b'[' {
+            if io::stdin().read_exact(&mut seq).is_ok() && seq[0] == b'[' {
                 if seq[1] == b'A' { final_key = 65; } // Up Arrow
                 if seq[1] == b'B' { final_key = 66; } // Down Arrow
             }
         }
 
         // Restore terminal to old stable mode
-        std::process::Command::new("stty").arg(&old_stty).status().unwrap();
+        let _ = std::process::Command::new("stty").arg(&old_stty).status();
 
         // Handle the keys
         match final_key {
@@ -90,9 +100,8 @@ fn prompt_pool_menu() -> String {
             66 => { // Down Arrow
                 if selected_index < pools.len() - 1 { selected_index += 1; }
             }
-            13 | 10 => { // Enter Key (Carriage return / Line feed)
+            13 | 10 => { // Enter Key
                 if selected_index == pools.len() - 1 {
-                    // Custom selection
                     print!("\x1B[H\x1B[J");
                     let mut custom_pool = String::new();
                     while custom_pool.is_empty() {
@@ -134,7 +143,7 @@ fn main() {
     // 2. Standard Miner Variables
     let worker = prompt_input(" 👉 Enter Worker Node ID [default: tcl_node_01]: ", "tcl_node_01");
     
-    // NEW: Interactive Arrow Key Menu for Pool selection!
+    // Interactive Arrow Key Menu for Pool selection
     let pool = prompt_pool_menu();
 
     // 3. Write updates down to XMRig's config file dynamically
