@@ -7,19 +7,19 @@ use std::time::Duration;
 use state::DashboardState;
 
 fn main() {
-    // Clear screen
+    // Clear terminal layout area completely
     println!("\x1B[2J\x1B[H");
     
     let mut state = DashboardState::new("tcl_node_01");
 
     loop {
-        // Poll the true API backend data
+        // Feed the true telemetry data into state variables
         state.poll_backend();
         
-        // Render via your clean layout module
+        // Draw console display output
         ui::render(&state);
         
-        // Polling interval
+        // Refresh timer
         thread::sleep(Duration::from_secs(2));
     }
 }
