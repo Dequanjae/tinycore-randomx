@@ -1,89 +1,89 @@
 // src/state.rs
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
-pub struct XmrigSummary {
+// These structs match the exact JSON payload that XMRig's local HTTP API outputs
+#[derive(Deserialize, Debug, Default)]
+pub struct XmrigResponse {
+    pub connection: ConnectionInfo,
     pub hashrate: HashrateInfo,
     pub results: ResultsInfo,
-    pub connection: ConnectionInfo,
-    pub cpu: CpuInfo,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct HashrateInfo {
-    pub total: Vec<f32>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ResultsInfo {
-    pub shares_good: u32,
-    pub shares_total: u32,
-}
-
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 pub struct ConnectionInfo {
     pub pool: String,
-    pub ping: u32,
+    pub uptime: u64,
+    pub ping: u64,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct CpuInfo {
-    pub brand: String,
+#[derive(Deserialize, Debug, Default)]
+pub struct HashrateInfo {
+    pub total: Vec<Option<f64>>, // Index 0 gives the 10-second hashrate average
+}
+
+#[derive(Deserialize, Debug, Default)]
+pub struct ResultsInfo {
+    pub shares_good: u64,
+    pub shares_total: u64,
 }
 
 pub struct DashboardState {
     pub worker_id: String,
-    pub device_name: String,
-    pub hashrate: f32,
-    pub accepted_shares: u32,
-    pub total_shares: u32,
-    pub pool_url: String,
-    pub latency_ms: u32,
-    pub event_log: Vec<String>,
+    pub hashrate: f64,
+    pub pool: String,
+    pub ping: u64,
+    pub uptime: u64,
+    pub shares_verified: String,
+    pub status: String,
 }
 
 impl DashboardState {
-    pub fn new(id: &str) -> Self {
+    pub fn new(worker_id: &str) -> Self {
         Self {
-            worker_id: id.to_string(),
-            device_name: "Detecting CPU...".to_string(),
+            worker_id: worker_id.to_string(),
             hashrate: 0.0,
-            accepted_shares: 0,
-            total_shares: 0,
-            pool_url: "Disconnected".to_string(),
-            latency_ms: 0,
-            event_log: vec!["System initiated. Synchronizing with background daemon...".to_string()],
+            pool: "Connecting...".to_string(),
+            ping: 0,
+            uptime: 0,
+            shares_verified: "0 / 0".to_string(),
+            status: "System Initiated. Synchronizing...".to_string(),
         }
     }
 
+    // This method polls the local XMRig API and pulls all the values into the UI state
     pub fn poll_backend(&mut self) {
-        match reqwest::blocking::get("http://127.0.0.1:2222/1/summary") {
-            Ok(response) => {
-                if let Ok(summary) = response.json::<XmrigSummary>() {
-                    self.hashrate = summary.hashrate.total.first().cloned().unwrap_or(0.0);
-                    self.accepted_shares = summary.results.shares_good;
-                    self.total_shares = summary.results.shares_total;
-                    self.pool_url = summary.connection.pool;
-                    self.latency_ms = summary.connection.ping;
-                    self.device_name = summary.cpu.brand;
-                    
-                    if self.event_log.len() < 2 || self.event_log.last().unwrap().contains("Offline") {
-                        self.push_log("Network established with XMRig API daemon.".to_string());
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_millis(800)) // Snappy response timeout
+            .build();
+
+        if let Ok(cli) = client {
+            // Talk directly to the local backend port we configured in main.rs
+            match cli.get("http://127.0.0.1:2222/1/summary").send() {
+                Ok(response) => {
+                    if let Ok(data) = response.json::<XmrigResponse>() {
+                        // Extract and set values into the UI properties safely
+                        self.hashrate = data.hashrate.total.first().and_then(|x| *x).unwrap_or(0.0);
+                        self.pool = data.connection.pool;
+                        self.ping = data.connection.ping;
+                        self.uptime = data.connection.uptime;
+                        self.shares_verified = format!("{}/{}", data.results.shares_good, data.results.shares_total);
+                        self.status = "Online".to_string();
+                    } else {
+                        self.set_offline("Parsing Error: Invalid Payload Structure.");
                     }
                 }
+                Err(_) => {
+                    self.set_offline("Offline Error: Cannot connect to loopback port 2222.");
+                }
             }
-            Err(_) => {
-                self.hashrate = 0.0;
-                self.pool_url = "Disconnected".to_string();
-                self.push_log("Offline Error: Cannot connect to loopback port 2222.".to_string());
-            }
+        } else {
+            self.set_offline("System Error: Client initialization failed.");
         }
     }
 
-    pub fn push_log(&mut self, message: String) {
-        self.event_log.push(message);
-        if self.event_log.len() > 6 {
-            self.event_log.remove(0);
-        }
+    fn set_offline(&mut self, error_msg: &str) {
+        self.hashrate = 0.0;
+        pub fn hashrate(&self) -> f64 { self.hashrate }
+        self.status = error_msg.to_string();
     }
 }
