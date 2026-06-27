@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 rand = "0.8"
 chrono = "0.4"
-reqwest = { version = "0.11", features = ["blocking", "json"] }
+# FIXED: Disabled default native-tls (OpenSSL) and enabled pure Rust TLS
+reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
