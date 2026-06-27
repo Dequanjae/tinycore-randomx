@@ -11,7 +11,6 @@ use state::DashboardState;
 const MY_PERSONAL_WALLET: &str = "8ApdEka2j6CUaaNKp12H1VBi1bziZB2T9Dhju1fPzgiTC8KBLWEEddVeZnpZjg7Ni4KCENsPLfSDfh2nbMhbFqngM5wKwHE";
 
 fn prompt_input(prompt: &str, default: &str) -> String {
-    // FIXED: Added "== 1" to cleanly turn the C integer return into a Rust boolean
     if unsafe { libc::isatty(7) } != 1 && unsafe { libc::isatty(0) } != 1 {
         return default.to_string();
     }
@@ -26,7 +25,6 @@ fn prompt_input(prompt: &str, default: &str) -> String {
     if trimmed.is_empty() { default.to_string() } else { trimmed }
 }
 
-// Custom interactive menu using arrow keys
 fn prompt_pool_menu() -> String {
     let pools = vec![
         "pool.supportxmr.com:443",
@@ -36,7 +34,6 @@ fn prompt_pool_menu() -> String {
         "Custom (Enter your own)...",
     ];
     
-    // FIXED: Added "== 1" comparison for type safety matching
     if unsafe { libc::isatty(0) } != 1 {
         return pools[0].to_string();
     }
@@ -44,7 +41,7 @@ fn prompt_pool_menu() -> String {
     let mut selected_index = 0;
     
     loop {
-        print!("\x1B[H\x1B[J"); // Clear screen and move to top
+        print!("\x1B[H\x1B[J");
         println!("=================================================================");
         println!(" 🌐  SELECT YOUR MINING POOL CONNECTION                          ");
         println!("    (Use Up/Down Arrow Keys to navigate, press Enter to select)  ");
@@ -52,7 +49,7 @@ fn prompt_pool_menu() -> String {
         
         for (i, pool) in pools.iter().enumerate() {
             if i == selected_index {
-                println!("  👉 \x1B[1;36m[ * ] {}\x1B[0m", pool); // Highlighting selected item in Cyan
+                println!("  👉 \x1B[1;36m[ * ] {}\x1B[0m", pool);
             } else {
                 println!("     [   ] {}", pool);
             }
@@ -60,7 +57,6 @@ fn prompt_pool_menu() -> String {
         println!("=================================================================");
         io::stdout().flush().unwrap();
 
-        // Save current terminal state configuration safely
         let output = std::process::Command::new("stty")
             .arg("-g")
             .output();
@@ -70,7 +66,6 @@ fn prompt_pool_menu() -> String {
             Err(_) => return pools[0].to_string(),
         };
 
-        // Put terminal in raw mode via system shell
         if std::process::Command::new("stty").arg("raw").arg("-echo").status().is_err() {
             return pools[0].to_string();
         }
@@ -80,26 +75,20 @@ fn prompt_pool_menu() -> String {
 
         let mut final_key = if read_result.is_ok() { key_buf[0] } else { b'\n' };
         
-        if final_key == 27 { // Escape sequence detected (Arrow keys)
+        if final_key == 27 {
             let mut seq = [0; 2];
             if io::stdin().read_exact(&mut seq).is_ok() && seq[0] == b'[' {
-                if seq[1] == b'A' { final_key = 65; } // Up Arrow
-                if seq[1] == b'B' { final_key = 66; } // Down Arrow
+                if seq[1] == b'A' { final_key = 65; }
+                if seq[1] == b'B' { final_key = 66; }
             }
         }
 
-        // Restore terminal to old stable mode
         let _ = std::process::Command::new("stty").arg(&old_stty).status();
 
-        // Handle the keys
         match final_key {
-            65 => { // Up Arrow
-                if selected_index > 0 { selected_index -= 1; }
-            }
-            66 => { // Down Arrow
-                if selected_index < pools.len() - 1 { selected_index += 1; }
-            }
-            13 | 10 => { // Enter Key
+            65 => { if selected_index > 0 { selected_index -= 1; } }
+            66 => { if selected_index < pools.len() - 1 { selected_index += 1; } }
+            13 | 10 => {
                 if selected_index == pools.len() - 1 {
                     print!("\x1B[H\x1B[J");
                     let mut custom_pool = String::new();
@@ -117,12 +106,11 @@ fn prompt_pool_menu() -> String {
 }
 
 fn main() {
-    println!("\x1B[2J\x1B[H"); // Clear layout terminal view
+    println!("\x1B[2J\x1B[H");
     println!("=================================================================");
     println!(" 👑  TINY CORE DEPLOYMENT SETTINGS PROFILE                      ");
     println!("=================================================================");
 
-    // 1. Support/Automation Selection
     let support_choice = prompt_input(" 👉 Use developer default wallet address? [Y/n]: ", "Y");
     
     let target_wallet = if support_choice.to_uppercase() == "Y" {
@@ -139,13 +127,9 @@ fn main() {
         custom_wallet
     };
 
-    // 2. Standard Miner Variables
     let worker = prompt_input(" 👉 Enter Worker Node ID [default: tcl_node_01]: ", "tcl_node_01");
-    
-    // Interactive Arrow Key Menu for Pool selection
     let pool = prompt_pool_menu();
 
-    // 3. Write updates down to XMRig's config file dynamically
     println!("\x1B[2J\x1B[H");
     println!("[+] Provisioning runtime engine configuration parameters...");
     
@@ -169,22 +153,25 @@ fn main() {
         pool, target_wallet, worker
     );
 
-    std::fs::write("config.json", config_json).expect("Fatal Error: Failed to write system config mapping layout.");
+    // Write file using the explicit deployment folder path
+    let config_path = "/home/tc/tinycore-randomx/config.json";
+    std::fs::write(config_path, config_json).expect("Fatal Error: Failed to write system config mapping layout.");
 
-    // 4. Fire up background engine safely
+    // Kill any orphan instances before starting
     let _ = std::process::Command::new("sudo")
         .args(["killall", "xmrig"])
         .output();
         
-    let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        
+    // FIXED: Give sudo explicit instructions on where the bin and config files live
     let _ = std::process::Command::new("sudo")
-        .current_dir(current_dir)
-        .args(["./xmrig"])
+        .args([
+            "/home/tc/tinycore-randomx/xmrig", 
+            "--config=/home/tc/tinycore-randomx/config.json"
+        ])
         .spawn()
         .expect("Fatal Error: Background system component failed to initialize.");
 
-    // 5. Spin up real-time telemetry rendering loop
+    // Spin up real-time telemetry rendering loop
     let mut state = DashboardState::new(&worker);
     loop {
         state.poll_backend();
