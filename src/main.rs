@@ -11,8 +11,8 @@ use state::DashboardState;
 const MY_PERSONAL_WALLET: &str = "8ApdEka2j6CUaaNKp12H1VBi1bziZB2T9Dhju1fPzgiTC8KBLWEEddVeZnpZjg7Ni4KCENsPLfSDfh2nbMhbFqngM5wKwHE";
 
 fn prompt_input(prompt: &str, default: &str) -> String {
-    // If there is no interactive terminal attached, fall back to the default immediately to avoid panics
-    if !unsafe { libc::isatty(7) } && !unsafe { libc::isatty(0) } {
+    // FIXED: Added "== 1" to cleanly turn the C integer return into a Rust boolean
+    if unsafe { libc::isatty(7) } != 1 && unsafe { libc::isatty(0) } != 1 {
         return default.to_string();
     }
     
@@ -36,9 +36,8 @@ fn prompt_pool_menu() -> String {
         "Custom (Enter your own)...",
     ];
     
-    // Safety check: If running in a background environment like GitHub Actions without a terminal screen,
-    // immediately return the default pool instead of panicking with Exit Code 101.
-    if !unsafe { libc::isatty(0) } {
+    // FIXED: Added "== 1" comparison for type safety matching
+    if unsafe { libc::isatty(0) } != 1 {
         return pools[0].to_string();
     }
     
@@ -68,7 +67,7 @@ fn prompt_pool_menu() -> String {
             
         let old_stty = match output {
             Ok(out) => String::from_utf8_lossy(&out.stdout).trim().to_string(),
-            Err(_) => return pools[0].to_string(), // Fallback if system environment lacks stty
+            Err(_) => return pools[0].to_string(),
         };
 
         // Put terminal in raw mode via system shell
