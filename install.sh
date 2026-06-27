@@ -17,12 +17,43 @@ if [ ! -f "./xmrig" ]; then
     rm -rf xmrig-6.21.0*
 fi
 
-# 3. Download the pre-compiled custom monitor binary built by GitHub Actions
+# 3. Create the configuration profile enabling the HTTP API daemon
+echo "[+] Creating local API engine configuration layer..."
+cat << 'EOF' > config.json
+{
+    "api": {
+        "id": null,
+        "worker-id": null
+    },
+    "http": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2222,
+        "access-token": null,
+        "restricted": false
+    },
+    "autosave": true,
+    "background": true,
+    "pools": [
+        {
+            "algo": "rx/0",
+            "coin": "monero",
+            "url": "pool.supportxmr.com:443",
+            "user": "44AFFq5kSiGbU8S789Cabc1234567890QWERTYUIOPASDFGHJKLZXCVBNM1234567890",
+            "pass": "tcl_node_01",
+            "tls": true
+        }
+    ]
+}
+EOF
+
+# 4. Download the pre-compiled custom monitor binary built by GitHub Actions
 echo "[+] Downloading pre-compiled machine-code interface profile..."
 wget -O monitor https://raw.githubusercontent.com/Dequanjae/tinycore-randomx/main/monitor
 chmod +x monitor
 
 echo "=================================================="
 echo " SETUP COMPLETED SUCCESSFULLY"
-echo " Run dashboard using: ./monitor"
+echo " Start backend miner:  sudo ./xmrig"
+echo " Run visual dashboard: ./monitor"
 echo "=================================================="
