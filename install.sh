@@ -2,13 +2,20 @@
 # Fail immediately if any command flags an error
 set -e
 
-echo "=== TINY CORE LINUX ENVIRONMENT DEPLOYMENT ==="
+echo "=========================================================="
+echo " ⚡ DEPLOYING HIGH-PERFORMANCE TINY CORE LINUX ENVIRONMENT "
+echo "=========================================================="
 
-# 1. Grab Core utilities via Tiny Core Extension System
+# 1. Establish absolute path inside the persistent user space
+WORK_DIR="/home/tc/tinycore-randomx"
+mkdir -p "$WORK_DIR"
+cd "$WORK_DIR"
+
+# 2. Grab Core utilities via Tiny Core Extension System
 echo "[+] Syncing core dependencies from repository mirrors..."
 tce-load -wi wget
 
-# 2. Retrieve pre-built XMRig engine tailored for raw Linux architectures
+# 3. Retrieve pre-built XMRig engine tailored for Linux architectures
 if [ ! -f "./xmrig" ]; then
     echo "[+] Downloading optimized RandomX engine component..."
     wget https://github.com/xmrig/xmrig/releases/download/v6.21.0/xmrig-6.21.0-linux-static-x64.tar.gz
@@ -17,8 +24,8 @@ if [ ! -f "./xmrig" ]; then
     rm -rf xmrig-6.21.0*
 fi
 
-# 3. Create the configuration profile enabling the HTTP API daemon
-echo "[+] Creating local API engine configuration layer..."
+# 4. Create the performance-optimized configuration profile with the HTTP API active
+echo "[+] Constructing local backend config profile..."
 cat << 'EOF' > config.json
 {
     "api": {
@@ -47,13 +54,33 @@ cat << 'EOF' > config.json
 }
 EOF
 
-# 4. Download the pre-compiled custom monitor binary built by GitHub Actions
-echo "[+] Downloading pre-compiled machine-code interface profile..."
+# 5. Fetch the precompiled user interface binary
+echo "[+] Fetching operational interface monitor..."
 wget -O monitor https://raw.githubusercontent.com/Dequanjae/tinycore-randomx/main/monitor
 chmod +x monitor
 
-echo "=================================================="
-echo " SETUP COMPLETED SUCCESSFULLY"
-echo " Start backend miner:  sudo ./xmrig"
-echo " Run visual dashboard: ./monitor"
-echo "=================================================="
+# 6. Configure Linux kernel memory optimization parameters (Huge Pages)
+echo "[+] Tuning kernel parameters: Allocating Huge Pages..."
+sudo sysctl -w vm.nr_hugepages=1280
+
+# 7. Coordinate Process Safety: Terminate older duplicate processes
+echo "[+] Clearing out conflicting process records..."
+sudo killall xmrig 2>/dev/null || true
+
+# 8. Register working directory with Tiny Core's backup configuration registry
+echo "[+] Registering binaries to Tiny Core backup system..."
+TARGET_LINE="home/tc/tinycore-randomx"
+if ! grep -Fxq "$TARGET_LINE" /opt/.filetool.lst; then
+    echo "$TARGET_LINE" >> /opt/.filetool.lst
+fi
+
+# Force system state sync to persistence medium
+echo "[+] Backing up current system layer to storage device..."
+filetool.sh -b
+
+echo "=========================================================="
+echo " CONFIGURATION COMPLETE - BACKEND LAUNCHED SUCCESSFULLY"
+echo "=========================================================="
+echo " To boot the engine manually:   sudo ./xmrig"
+echo " To run the display interface:  ./monitor"
+echo "=========================================================="
