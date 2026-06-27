@@ -29,20 +29,29 @@ echo "[+] Fetching operational interface monitor..."
 wget -O monitor https://raw.githubusercontent.com/Dequanjae/tinycore-randomx/main/monitor
 chmod +x monitor
 
-# 5. Configure Linux kernel memory optimization parameters (Huge Pages)
+# 5. FIXED: Inject global system shortcut alias into user profile configuration
+echo "[+] Configuring global shortcut properties..."
+if [ -f "/home/tc/.ashrc" ]; then
+    # Clean up any old broken alias entries if they exist
+    sed -i '/alias monitor=/d' /home/tc/.ashrc
+fi
+echo "alias monitor='cd /home/tc/tinycore-randomx && ./monitor'" >> /home/tc/.ashrc
+
+# 6. Configure Linux kernel memory optimization parameters (Huge Pages)
 echo "[+] Tuning kernel parameters: Allocating Huge Pages..."
 sudo sysctl -w vm.nr_hugepages=1280
 
-# 6. Coordinate Process Safety: Terminate older duplicate processes
+# 7. Coordinate Process Safety: Terminate older duplicate processes
 echo "[+] Clearing out conflicting process records..."
 sudo killall xmrig 2>/dev/null || true
 
-# 7. Register working directory with Tiny Core's backup configuration registry
+# 8. Register working directory and profile mappings with Tiny Core's backup registry
 echo "[+] Registering binaries to Tiny Core backup system..."
-TARGET_LINE="home/tc/tinycore-randomx"
-if ! grep -Fxq "$TARGET_LINE" /opt/.filetool.lst; then
-    echo "$TARGET_LINE" >> /opt/.filetool.lst
-fi
+for TARGET in "home/tc/tinycore-randomx" "home/tc/.ashrc"; do
+    if ! grep -Fxq "$TARGET" /opt/.filetool.lst; then
+        echo "$TARGET" >> /opt/.filetool.lst
+    fi
+done
 
 # Force system state sync to persistence medium
 echo "[+] Backing up current system layer to storage device..."
@@ -51,6 +60,6 @@ filetool.sh -b
 echo "=========================================================="
 echo "         CONFIGURATION & DEPLOYMENT COMPLETE              "
 echo "=========================================================="
-echo " To configure your wallet & start mining, run:"
-echo " ./monitor"
+echo " The system alias is configured! You can now start by typing:"
+echo " monitor"
 echo "=========================================================="
