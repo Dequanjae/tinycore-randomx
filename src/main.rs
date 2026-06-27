@@ -8,7 +8,7 @@ use std::time::Duration;
 use state::DashboardState;
 
 // Define your permanent wallet address here so you never have to type it out manually again
-const MY_PERSONAL_WALLET: &str = "44AFFq5kSiGbU8S789Cabc1234567890QWERTYUIOPASDFGHJKLZXCVBNM1234567890";
+const MY_PERSONAL_WALLET: &str = "8AaKnpAEK8MgHR5hJM2rLjhRaPuLYvtrb98uipf7gxVxh1uzsFJcrJ8SfXoWsxSTUE7ZdeGzRRQV9gUHFVzunKp5RNzg1fc";
 
 fn prompt_input(prompt: &str, default: &str) -> String {
     print!("{}", prompt);
