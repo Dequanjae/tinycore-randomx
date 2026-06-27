@@ -1,7 +1,6 @@
 // src/state.rs
 use serde::Deserialize;
 
-// These structs match the exact JSON payload that XMRig's local HTTP API outputs
 #[derive(Deserialize, Debug, Default)]
 pub struct XmrigResponse {
     pub connection: ConnectionInfo,
@@ -18,7 +17,7 @@ pub struct ConnectionInfo {
 
 #[derive(Deserialize, Debug, Default)]
 pub struct HashrateInfo {
-    pub total: Vec<Option<f64>>, // Index 0 gives the 10-second hashrate average
+    pub total: Vec<Option<f64>>,
 }
 
 #[derive(Deserialize, Debug, Default)]
@@ -35,6 +34,7 @@ pub struct DashboardState {
     pub uptime: u64,
     pub shares_verified: String,
     pub status: String,
+    pub event_log: Vec<String>, // Added for ui.rs loop
 }
 
 impl DashboardState {
@@ -47,21 +47,19 @@ impl DashboardState {
             uptime: 0,
             shares_verified: "0 / 0".to_string(),
             status: "System Initiated. Synchronizing...".to_string(),
+            event_log: vec!["System interface brought online safely.".to_string()],
         }
     }
 
-    // This method polls the local XMRig API and pulls all the values into the UI state
     pub fn poll_backend(&mut self) {
         let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_millis(800)) // Snappy response timeout
+            .timeout(std::time::Duration::from_millis(800))
             .build();
 
         if let Ok(cli) = client {
-            // Talk directly to the local backend port we configured in main.rs
             match cli.get("http://127.0.0.1:2222/1/summary").send() {
                 Ok(response) => {
                     if let Ok(data) = response.json::<XmrigResponse>() {
-                        // Extract and set values into the UI properties safely
                         self.hashrate = data.hashrate.total.first().and_then(|x| *x).unwrap_or(0.0);
                         self.pool = data.connection.pool;
                         self.ping = data.connection.ping;
@@ -83,7 +81,8 @@ impl DashboardState {
 
     fn set_offline(&mut self, error_msg: &str) {
         self.hashrate = 0.0;
-        pub fn hashrate(&self) -> f64 { self.hashrate }
         self.status = error_msg.to_string();
+        if self.event_log.len() > 10 { self.event_log.remove(0); }
+        self.event_log.push(format!("[!] Keep-alive failed: {}", error_msg));
     }
 }
